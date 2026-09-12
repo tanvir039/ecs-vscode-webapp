@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 
 RUN curl -fsSL \
-    "https://github.com/coder/code-server/releases/download/v4.136.2/code-server-4.136.2-linux-arm64.tar.gz" \
+    "https://github.com/coder/code-server/releases/download/v4.136.2/code-server-4.136.2-linux-amd64.tar.gz" \
     -o /tmp/app.tar.gz \
     && mkdir -p /app \
     && tar --strip-components=1 -xzf /tmp/app.tar.gz -C /app \
