@@ -70,7 +70,7 @@ resource "aws_iam_role" "github_terraform_deploy" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:tanvir039/ecs-vscode-webapp:*" }
+        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:tanvir039@151540651/ecs-vscode-webapp@1366439722:ref:refs/heads/main" }
       }
     }]
   })
