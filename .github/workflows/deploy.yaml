@@ -1,0 +1,71 @@
+name: Terraform Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Git commit SHA (short) of the images to deploy"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::182879432442:role/github-actions-terraform-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.0"
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: |
+          terraform plan \
+            -var="image_tag=${{ inputs.image_tag }}" \
+            -var="code_server_password=${{ secrets.CODE_SERVER_PASSWORD }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
+
+      - name: Wait for ECS service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster $(terraform -chdir=infra output -raw ecs_cluster_name) \
+            --services $(terraform -chdir=infra output -raw ecs_service_name)
+
+      - name: Post-deploy health check
+        run: |
+          for i in {1..5}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://tm.tanvirahmed.uk/health)
+            if [ "$status" -eq 200 ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: got status $status, retrying..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1

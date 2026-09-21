@@ -1,0 +1,53 @@
+name: Build & Push Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REGISTRY: 182879432442.dkr.ecr.eu-west-2.amazonaws.com
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set short SHA
+        id: vars
+        run: echo "sha_short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::182879432442:role/github-actions-ecr-push
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push code-server image
+        working-directory: app/code-server
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ env.ECR_REGISTRY }}/code-server-app:${{ steps.vars.outputs.sha_short }} .
+          docker push ${{ env.ECR_REGISTRY }}/code-server-app:${{ steps.vars.outputs.sha_short }}
+
+      - name: Build and push nginx image
+        working-directory: app/nginx
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ env.ECR_REGISTRY }}/nginx-sidecar:${{ steps.vars.outputs.sha_short }} .
+          docker push ${{ env.ECR_REGISTRY }}/nginx-sidecar:${{ steps.vars.outputs.sha_short }}
+
+      - name: Print image tag
+        run: echo "Pushed images with tag ${{ steps.vars.outputs.sha_short }}"
