@@ -26,6 +26,17 @@ jobs:
         id: vars
         run: echo "sha_short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
+      - name: Display expected OIDC subject
+        run: |
+          REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
+
+          echo "Repository: ${GITHUB_REPOSITORY}"
+          echo "Repository ID: ${GITHUB_REPOSITORY_ID}"
+          echo "Owner ID: ${GITHUB_REPOSITORY_OWNER_ID}"
+          echo "Branch reference: ${GITHUB_REF}"
+          echo "Expected subject:"
+          echo "repo:${GITHUB_REPOSITORY_OWNER}@${GITHUB_REPOSITORY_OWNER_ID}/${REPOSITORY_NAME}@${GITHUB_REPOSITORY_ID}:ref:${GITHUB_REF}"
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
