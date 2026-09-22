@@ -83,3 +83,33 @@ resource "aws_iam_role_policy_attachment" "terraform_deploy" {
   role       = aws_iam_role.github_terraform_deploy.name
   policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }
+
+resource "aws_iam_role_policy" "terraform_deploy_iam" {
+  name = "terraform-deploy-iam-permissions"
+  role = aws_iam_role.github_terraform_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:PassRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:TagRole",
+          "iam:UntagRole"
+        ]
+        Resource = "arn:aws:iam::182879432442:role/ecs-code-server-*"
+      }
+    ]
+  })
+}
