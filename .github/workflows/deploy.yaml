@@ -37,6 +37,25 @@ jobs:
       - name: Terraform Init
         working-directory: infra
         run: terraform init
+        
+        
+      - name: Terraform Format Check
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: infra
+        run: terraform validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        working-directory: infra
+        run: |
+          tflint --init
+          tflint --recursive
+
 
       - name: Terraform Plan
         working-directory: infra
