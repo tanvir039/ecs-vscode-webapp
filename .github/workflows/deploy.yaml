@@ -68,7 +68,7 @@ jobs:
         working-directory: infra
         run: terraform apply -auto-approve tfplan
 
-      - name: Wait for ECS service to stabilize
+      - name: Wait for ECS service to stabilise
         run: |
           aws ecs wait services-stable \
             --cluster $(terraform -chdir=infra output -raw cluster_name) \
