@@ -54,7 +54,7 @@ jobs:
         run: |
           aws ecs wait services-stable \
             --cluster $(terraform -chdir=infra output -raw cluster_name) \
-            --services $(terraform -chdir=infra output -raw service_name)
+            --services $(terraform -chdir=infra output -raw ecs_service_name)
 
       - name: Post-deploy health check
         run: |
