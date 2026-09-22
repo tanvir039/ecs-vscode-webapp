@@ -38,7 +38,7 @@ jobs:
         working-directory: infra
         run: terraform init
         
-        
+
       - name: Terraform Format Check
         working-directory: infra
         run: terraform fmt -check -recursive
@@ -62,7 +62,6 @@ jobs:
         run: |
           terraform plan \
             -var="image_tag=${{ inputs.image_tag }}" \
-            -var="code_server_password=${{ secrets.CODE_SERVER_PASSWORD }}" \
             -out=tfplan
 
       - name: Terraform Apply

@@ -161,3 +161,17 @@ resource "aws_ecs_service" "this" {
 
   tags = var.tags
 }
+
+resource "aws_iam_role_policy" "secrets_access" {
+  name = "secrets-manager-access"
+  role = aws_iam_role.ecs_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = data.aws_secretsmanager_secret.code_server_password.arn
+    }]
+  })
+}
