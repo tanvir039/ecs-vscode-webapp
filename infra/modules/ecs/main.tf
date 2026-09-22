@@ -105,7 +105,7 @@ resource "aws_ecs_task_definition" "this" {
         }
       ]
 
-      environment = [
+      secrets = [
         {
           name      = "PASSWORD"
           valueFrom = data.aws_secretsmanager_secret.code_server_password.arn
