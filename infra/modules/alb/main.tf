@@ -57,9 +57,9 @@ resource "aws_lb_target_group" "app" {
     matcher  = "200"
 
     interval            = 30
-    timeout              = 5
-    healthy_threshold    = 2
-    unhealthy_threshold  = 3
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
   }
 
   # Shorter than the AWS default (300s) so this lab's teardown/redeploy

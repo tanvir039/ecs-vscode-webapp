@@ -95,7 +95,7 @@ resource "aws_ecs_task_definition" "this" {
 
       environment = [
         {
-          name  = "PASSWORD"
+          name      = "PASSWORD"
           valueFrom = data.aws_secretsmanager_secret.code_server_password.arn
         }
       ]
@@ -143,8 +143,8 @@ resource "aws_ecs_service" "this" {
 
   load_balancer {
     target_group_arn = var.target_group_arn
-    container_name    = "nginx-sidecar"
-    container_port    = 8081
+    container_name   = "nginx-sidecar"
+    container_port   = 8081
   }
 
   tags = var.tags

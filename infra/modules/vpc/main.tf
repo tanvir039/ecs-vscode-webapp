@@ -9,7 +9,7 @@ module "vpc" {
 
   public_subnets = var.public_subnet_cidrs
 
-  create_igw = true
+  create_igw              = true
   map_public_ip_on_launch = true
 
   enable_nat_gateway = false
