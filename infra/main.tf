@@ -51,7 +51,7 @@ module "ecs" {
   nginx_image_url      = module.ecr.repository_urls["nginx-sidecar"]
   code_server_image_url = module.ecr.repository_urls["code-server-app"]
   image_tag            = var.image_tag
-  code_server_password = var.code_server_password
+  code_server_secret_name = "ecs-code-server-app/code-server-password"
 
   tags = local.common_tags
 }

@@ -32,9 +32,3 @@ variable "image_tag" {
   type        = string
   description = "Git commit SHA tag to deploy for both container images"
 }
-
-variable "code_server_password" {
-  type        = string
-  description = "Password for code-server authentication"
-  sensitive   = true
-}
