@@ -1,3 +1,7 @@
+data "aws_secretsmanager_secret" "code_server_password" {
+  name = var.code_server_secret_name
+}
+
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.name}"
   retention_in_days = var.log_retention_days
@@ -92,7 +96,7 @@ resource "aws_ecs_task_definition" "this" {
       environment = [
         {
           name  = "PASSWORD"
-          value = var.code_server_password
+          valueFrom = data.aws_secretsmanager_secret.code_server_password.arn
         }
       ]
 

@@ -53,10 +53,15 @@ variable "image_tag" {
   description = "Tag to deploy for both images (e.g. git commit SHA)"
 }
 
-variable "code_server_password" {
+# variable "code_server_password" {
+#   type        = string
+#   description = "Password for code-server authentication"
+#   sensitive   = true
+# }
+
+variable "code_server_secret_name" {
   type        = string
-  description = "Password for code-server authentication"
-  sensitive   = true
+  description = "Name of the existing Secrets Manager secret holding the code-server password"
 }
 
 variable "vpc_id" {
