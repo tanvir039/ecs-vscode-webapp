@@ -1,0 +1,8 @@
+project_name = "ecs-code-server"
+environment  = "dev"
+region       = "eu-west-2"
+
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+
+image_tag = "REPLACE_WITH_A_REAL_ECR_IMAGE_TAG"
