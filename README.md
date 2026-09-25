@@ -2,7 +2,7 @@
 
 A production-style deployment of [coder/code-server](https://github.com/coder/code-server) on AWS ECS Fargate, built manually in the AWS Console first, then fully rebuilt as modular Terraform, with GitHub Actions CI/CD authenticating via OIDC (no static AWS keys).
 
-Live at: `https://tm.tanvirahmed.uk` (torn down between sessions to avoid idle cost — see [Reproducing this deployment](#reproducing-this-deployment))
+Live URL: `https://tm.tanvirahmed.uk` (currently torn down between sessions to avoid idle AWS cost — see [Reproducing this deployment](#reproducing-this-deployment))
 
 ## Overview
 
@@ -38,12 +38,14 @@ There is no private subnet and no NAT Gateway anywhere in this design. The ECS t
 
 ![CI/CD architecture](docs/cicd-architecture.svg)
 
-Two independent GitHub Actions workflows, deliberately connected only through a human decision rather than an automatic chain:
+The delivery process is split across two GitHub Actions workflows, with image creation and deployment deliberately separated by a manual promotion gate:
 
-- **`build-push.yml`** — triggers automatically on every push to `main` that touches `app/**`. Builds both images, tags them with the short git commit SHA, pushes to ECR. Uses a narrow IAM role (`github-actions-ecr-push`) that can only push to these two specific ECR repositories.
-- **`terraform-deploy.yml`** — triggers only via manual `workflow_dispatch`, requiring the operator to explicitly type in the image tag to deploy (no default value). Runs `terraform fmt -check`, `validate`, and `tflint` as a quality gate, then `plan`/`apply`, waits for the ECS service to genuinely stabilise, then retries a real `/health` check against the live domain and fails the pipeline if it doesn't return `200`. Uses a broader IAM role (`github-actions-terraform-deploy`), scoped as tightly as Terraform's own needs allow.
+- **`build-push.yml`** — triggers automatically when a push to `main` changes files under `app/**`. It builds both images, tags them with the short git commit SHA, and pushes them to their respective ECR repositories. The workflow assumes a narrow IAM role (`github-actions-ecr-push`) that can only push to the two specific ECR repositories used in this project.
+- **`terraform-deploy.yml`** — triggers only via manual `workflow_dispatch`, requiring the operator to type in the image tag to deploy (no default value). Before deployment, the workflow runs `terraform fmt -check`, `validate`, and `tflint` as quality gates, then `terraform plan` and `terraform apply`. It then waits for the ECS service to stabilise, then performs a health check against the live `/health` endpoint, failing the pipeline if the application doesn't return `200` response. This workflow assumes a broader IAM role (`github-actions-terraform-deploy`), with permissions limited to the AWS resources and operations required by Terraform.
 
-Deploy is a deliberate gate rather than automatic-on-push, mirroring a common real-world pattern: build continuously, promote/deploy on purpose.
+Deploy is a deliberate gate rather than automatic-on-push, mirroring a common real world pattern: build continuously, promote/deploy on purpose.
+
+Both workflows authenticate to AWS through GitHub OIDC, using short lived credentials rather than stored access keys.
 
 ## Repository structure
 
@@ -61,24 +63,29 @@ Deploy is a deliberate gate rather than automatic-on-push, mirroring a common re
 │   ├── main.tf                 # S3 state bucket (versioned, encrypted)
 │   ├── oidc.tf                 # GitHub OIDC provider + two IAM roles
 │   ├── secrets.tf              # Secrets Manager secret for PASSWORD
-│   └── terraform.tfvars        # gitignored — real password value
+│   ├── variables.tf
+│   ├── terraform.tfvars        # gitignored — real password value
+│   └── terraform.tfvars.example
+
 ├── infra/                      # the routinely destroy/apply'd application stack
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── outputs.tf
 │   ├── provider.tf
 │   ├── backend.tf              # S3 backend, native locking
+│   ├── .tflint.hcl
+│   ├── terraform.tfvars        # gitignored — real values
 │   ├── terraform.tfvars.example
 │   └── modules/
 │       ├── vpc/
-│       ├── ecr/
+│       ├── ecr/                # see Known limitations — lives here, not bootstrap/
 │       ├── alb/
 │       ├── ecs/
 │       ├── acm/
 │       └── dns/
 ├── .github/workflows/
-│   ├── build-push.yml
-│   └── terraform-deploy.yml
+│   ├── build-push.yaml
+│   └── deploy.yaml
 └── docs/
     ├── architecture.svg
     ├── cicd-architecture.svg
@@ -106,7 +113,7 @@ Deploy is a deliberate gate rather than automatic-on-push, mirroring a common re
 - **No persistent storage.** ECS Fargate tasks are ephemeral; anything created inside the code-server workspace is lost on task restart. Adding an EFS volume mount was considered and deliberately deferred as out of scope for this project's MVP.
 - **Single task, no real multi-AZ redundancy in practice.** The infrastructure spans two Availability Zones (a hard requirement for the ALB), but `desired_count = 1` means only one task is ever actually running at a time. The architecture diagram reflects this honestly rather than implying duplicated capacity that doesn't exist.
 - **The Route 53 hosted zone, the Secrets Manager secret, and the GitHub OIDC trust setup are one-time manual/local steps**, not something a single `terraform apply` reproduces end-to-end from zero in a new AWS account. This was a deliberate choice (see Design decisions above) rather than an oversight — full automation of the Cloudflare NS delegation step specifically would require adding the Cloudflare Terraform provider and a second set of credentials, which wasn't judged worth the added complexity for a single-maintainer learning project.
-- **ECR lives inside `infra/`, not `bootstrap/`.** This creates a real bootstrapping order dependency: `build-push.yml` cannot push images until the ECR repositories exist, but those repositories are only created by `terraform apply` on `infra/`. In practice this means the very first deploy of a fresh `infra/` stack has to be run once with a placeholder `image_tag` (the ECS service will fail to place tasks until real images exist — harmless, since `terraform apply` doesn't block on tasks actually starting), `build-push.yml` can then push real images, and `terraform-deploy.yml` is re-run with the real tag to let the service stabilise. It also means every full `terraform destroy` of `infra/` deletes the pushed images along with everything else, requiring a re-push before the next deploy. The cleaner design — moving the `ecr` module into `bootstrap/`, alongside the other foundational, rarely-destroyed resources (the state bucket, OIDC roles, Secrets Manager secret) — was identified but deliberately not carried out this late in the project, to avoid re-testing the full pipeline against a Terraform state migration this close to completion. Listed here as the clearest concrete improvement for a next iteration.
+- **ECR lives inside `infra/`, not `bootstrap/`.** This creates a real bootstrapping order dependency: `build-push.yaml` cannot push images until the ECR repositories exist, but those repositories are only created by `terraform apply` on `infra/`. In practice this means the very first deploy of a fresh `infra/` stack has to be run once with a placeholder `image_tag` (the ECS service will fail to place tasks until real images exist — harmless, since `terraform apply` doesn't block on tasks actually starting), `build-push.yaml` can then push real images, and `terraform-deploy.yaml` is re-run with the real tag to let the service stabilise. It also means every full `terraform destroy` of `infra/` deletes the pushed images along with everything else, requiring a re-push before the next deploy. The cleaner design — moving the `ecr` module into `bootstrap/`, alongside the other foundational, rarely-destroyed resources (the state bucket, OIDC roles, Secrets Manager secret) — was identified but deliberately not carried out this late in the project, to avoid re-testing the full pipeline against a Terraform state migration this close to completion. Listed here as the clearest concrete improvement for a next iteration.
 
 ## Reproducing this deployment
 
@@ -137,7 +144,7 @@ Take the four nameservers from the output and add them as `NS` records for the `
 
 ### 3. First-time deploy (creates the ECR repositories)
 
-The ECR repositories are created by `infra/`, but `build-push.yml` needs them to exist before it can push anything — so on a genuinely fresh AWS account, deploy once first with any placeholder tag:
+The ECR repositories are created by `infra/`, but `build-push.yaml` needs them to exist before it can push anything — so on a genuinely fresh AWS account, deploy once first with any placeholder tag:
 
 ```
 Actions → Terraform Deploy → Run workflow → image_tag: bootstrap
@@ -147,7 +154,7 @@ The ECS service will fail to place tasks (no image exists yet at that tag) — t
 
 ### 4. Build and push the real images
 
-Push a commit touching `app/**` to `main` — `build-push.yml` will build and push both images automatically. Note the short SHA it produces.
+Push a commit touching `app/**` to `main` — `build-push.yaml` will build and push both images automatically. Note the short SHA it produces.
 
 ### 5. Deploy for real
 
