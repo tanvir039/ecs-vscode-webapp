@@ -6,12 +6,12 @@ Live at: `https://tm.tanvirahmed.uk` (torn down between sessions to avoid idle c
 
 ## Overview
 
-This project takes an open-source, non-trivial application (code-server — a full VS Code server, not a toy "hello world" app) and deploys it the way a real workload would be: containerised, fronted by an ALB with a real domain and HTTPS, orchestrated by ECS Fargate, and deployed through an automated pipeline rather than by hand.
+This project takes an open source, non trivial application (code-server - a fully functional browser-based VS Code environment) and deploys it using a production style architecture: containerised, fronted by an ALB with a custom domain and HTTPS, orchestrated by ECS Fargate, and deployed through an automated CI/CD pipeline rather than manual deployment.
 
 The brief called for exactly this progression, and the project follows it in order:
 
 1. Run the app locally, outside Docker
-2. Containerise it (multi-stage, non-root, minimal image)
+2. Containerise it (multi-stage, non-root user, minimal image)
 3. Push to a private container registry (ECR)
 4. Deploy manually via the AWS Console ("ClickOps") to understand every moving part
 5. Tear it down and rebuild identically as modular Terraform
@@ -21,12 +21,14 @@ The brief called for exactly this progression, and the project follows it in ord
 
 ![Runtime architecture](docs/architecture.svg)
 
-A request reaches `tm.tanvirahmed.uk` via Route 53, hits an Application Load Balancer (TLS terminated with an ACM certificate, HTTP forced to redirect to HTTPS), and is forwarded to a single ECS Fargate task. That task runs two containers sharing one network interface (`awsvpc` mode):
+A request reaches `tm.tanvirahmed.uk` via Route 53, hits an Application Load Balancer (TLS terminated with an ACM certificate, HTTP forced to redirect to HTTPS), and is forwarded to a single ECS Fargate task. Using `awsvpc` networking, each task recieves its own ENI and runs two containers that share the same namespace and communicate over `localhost`.
 
-- **nginx-sidecar** (port 8081) — the only container the ALB ever talks to. It exposes `/health`, which does **not** just return a static "ok" — it performs an internal `auth_request` subrequest to code-server's own `/healthz` endpoint over loopback before answering, so a genuinely dead backend is reported as unhealthy rather than the sidecar lying about its own liveness. Everything else is reverse-proxied straight through to code-server, including the WebSocket upgrade needed for the integrated terminal.
-- **code-server-app** (port 8080) — the actual application, reachable by nginx only, never directly by the ALB.
+<!-- The task runs two containers sharing one network interface (`awsvpc` mode): -->
 
-Supporting services: the task pulls its images from **ECR** at startup, resolves its login password from **Secrets Manager** (never stored in Terraform state or CI), and streams both containers' logs to **CloudWatch**.
+- **nginx-sidecar** (port 8081) — the only container the ALB ever talks to. It exposes `/health`, which does **not** just return a static "ok" — it performs an internal `auth_request` subrequest to code-server's native `/healthz` endpoint before returning a successful response. This ensures the ALB reports the task as healthy only when both Nginx and the underlying application are operational. All other traffic is reverse-proxied to code-server-app, including the WebSocket upgrade required by the integrated terminal.
+- **code-server-app** (port 8080) — runs the actual application, reachable by nginx-sidecar only, never exposed directly through the ALB.
+
+At task startup, the container images are pulled from **Amazon ECR**, the code-server login password is injected securely from **AWS Secrets Manager** (never stored in Terraform state or CI), and logs from both containers are streamed to separate **CloudWatch** streams.
 
 ### A deliberate departure from "standard" AWS reference architecture
 
