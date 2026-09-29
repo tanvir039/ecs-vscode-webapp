@@ -17,6 +17,17 @@ The brief called for exactly this progression, and the project follows it in ord
 5. Tear it down and rebuild identically as modular Terraform
 6. Automate builds and deployments with GitHub Actions, using OIDC
 
+## Tech stack
+
+| Area | Technologies |
+| --- | --- |
+| **Application and proxy** | code-server, Nginx |
+| **Containerisation** | Docker, multi-stage builds |
+| **Infrastructure as code** | Terraform, TFLint |
+| **AWS infrastructure** | ECS Fargate, Application Load Balancer, VPC, ECR, Route 53, ACM, Secrets Manager, CloudWatch Logs, IAM and S3 |
+| **CI/CD and authentication** | GitHub Actions, GitHub OIDC federation |
+| **Domain and DNS delegation** | Cloudflare |
+
 ## Architecture
 
 ![Runtime architecture](docs/architecture.svg)
@@ -193,7 +204,3 @@ These incidents are included because diagnoisng unexpected behaviour was as impo
 6. **`PowerUserAccess` was insufficient for Terraform’s IAM operations.** The Terraform deploy role could plan and apply most application infrastructure, but failed on `iam:GetRole` when managing the ECS execution role. Rather than replacing it with a broader administrator policy, a supplemental policy was added with the IAM actions Terraform required, restricted to the project’s `ecs-code-server-*` roles and including the necessary `iam:PassRole` permission.
 7. **A semantically incorrect container definition bypassed static checks.** The ECS container definition used an `environment` block with a `valueFrom` key inside it — syntactically valid JSON, but `valueFrom` is only meaningful inside a `secrets` block. ECS silently ignored the unrecognised field. `terraform validate`, `plan`, and `tflint` all passed cleanly throughout, because the mistake was semantic (what ECS's API expects inside that specific key), not structural. Only caught by reading actual CloudWatch startup logs and noticing code-server reported `Using password from config.yaml` instead of `Using password from $PASSWORD`. Moving the entry into secrets corrected the injection from Secrets Manager.
 8. **AA stale local variable selected an obsolete image tag.** A local `terraform apply`, run outside the CI pipeline, automatically loaded an old `image_tag` from `terraform.tfvars` and registered a task definition referencing an image that was no longer available. ECS subsequently returned `CannotPullContainerError`.  Comparing the task definition’s image URI with the tags present in ECR exposed the mismatch - the file still referenced a commit SHA from early in the project, silently overriding whatever tag the pipeline had actually been deploying. Updating the local variable restored consistency with the CI deployment.
-
-## Tech stack
-
-Docker · Terraform · AWS (ECS Fargate, ALB, VPC, ECR, Route 53, ACM, Secrets Manager, CloudWatch, IAM/OIDC) · GitHub Actions · nginx · code-server
