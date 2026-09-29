@@ -76,5 +76,5 @@ variable "target_group_arn" {
 variable "desired_count" {
   type        = number
   description = "Number of tasks the service should keep running"
-  default     = 1
+  default     = 2
 }
