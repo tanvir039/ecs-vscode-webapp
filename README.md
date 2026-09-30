@@ -4,7 +4,7 @@ A production-style deployment of [coder/code-server](https://github.com/coder/co
 
 Live URL: `https://tm.tanvirahmed.uk` (currently torn down between sessions to avoid idle AWS cost — see [Reproducing this deployment](#reproducing-this-deployment))
 
-![Code-server running through the HTTPS domain](docs/screenshots/live-application-1.png)
+![Code-server running through the HTTPS domain](docs/screenshots/live-application-2.png)
 
 ## Overview
 
