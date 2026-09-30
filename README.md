@@ -4,6 +4,8 @@ A production-style deployment of [coder/code-server](https://github.com/coder/co
 
 Live URL: `https://tm.tanvirahmed.uk` (currently torn down between sessions to avoid idle AWS cost — see [Reproducing this deployment](#reproducing-this-deployment))
 
+![Code-server running through the HTTPS domain](docs/screenshots/live-application-1.png)
+
 ## Overview
 
 This project takes an open source, non trivial application (code-server - a fully functional browser-based VS Code environment) and deploys it using a production style architecture: containerised, fronted by an ALB with a custom domain and HTTPS, orchestrated by ECS Fargate, and deployed through an automated CI/CD pipeline rather than manual deployment.
@@ -201,3 +203,64 @@ These incidents are included because diagnoisng unexpected behaviour was as impo
 6. **`PowerUserAccess` was insufficient for Terraform’s IAM operations.** The Terraform deploy role could plan and apply most application infrastructure, but failed on `iam:GetRole` when managing the ECS execution role. Rather than replacing it with a broader administrator policy, a supplemental policy was added with the IAM actions Terraform required, restricted to the project’s `ecs-code-server-*` roles and including the necessary `iam:PassRole` permission.
 7. **A semantically incorrect container definition bypassed static checks.** The ECS container definition used an `environment` block with a `valueFrom` key inside it — syntactically valid JSON, but `valueFrom` is only meaningful inside a `secrets` block. ECS silently ignored the unrecognised field. `terraform validate`, `plan`, and `tflint` all passed cleanly throughout, because the mistake was semantic (what ECS's API expects inside that specific key), not structural. Only caught by reading actual CloudWatch startup logs and noticing code-server reported `Using password from config.yaml` instead of `Using password from $PASSWORD`. Moving the entry into secrets corrected the injection from Secrets Manager.
 8. **A stale local variable selected an obsolete image tag.** A local `terraform apply`, run outside the CI pipeline, automatically loaded an old `image_tag` from `terraform.tfvars` and registered a task definition referencing an image that was no longer available. ECS subsequently returned `CannotPullContainerError`.  Comparing the task definition’s image URI with the tags present in ECR exposed the mismatch - the file still referenced a commit SHA from early in the project, silently overriding whatever tag the pipeline had actually been deploying. Updating the local variable restored consistency with the CI deployment.
+
+
+## Deployment evidence
+
+### 1. Local containerisation
+
+![Docker containers running locally](docs/screenshots/docker-code-server-running.png)
+
+![Successful local health check](docs/screenshots/docker-nginx-running.png)
+
+### 2. Container registry
+
+Both container images were built, tagged with the Git commit SHA and pushed to Amazon ECR.
+
+![SHA-tagged images in Amazon ECR](docs/screenshots/ecr-images.png)
+
+---
+
+### 3. ECS and load balancer
+
+The ECS service maintains one running Fargate task containing the Nginx and code-server containers.
+
+![Running ECS Fargate task](docs/screenshots/ecs-task-running.png)
+
+The Application Load Balancer registers the Nginx container as a healthy target on port `8081`.
+
+![Healthy ALB target](docs/screenshots/alb-healthy.png)
+
+---
+
+### 4. HTTPS and DNS
+
+The ACM certificate was successfully issued for the application domain.
+
+![Issued ACM certificate](docs/screenshots/acm-certificate-issued.png)
+
+The Route 53 alias record directs the application domain to the Application Load Balancer.
+
+![Route 53 application record](docs/screenshots/route53-record.png)
+
+---
+
+### 5. CI/CD pipelines
+
+The build workflow successfully built both images and pushed their immutable SHA-tagged versions to ECR.
+
+![Successful build and push workflow](docs/screenshots/build-push-workflow-success.png)
+
+The deployment workflow applied the Terraform configuration, waited for ECS to stabilise and completed the post-deployment health check.
+
+![Successful Terraform deployment workflow](docs/screenshots/deploy-workflow-success.png)
+
+---
+
+### 6. Live application
+
+Code-server is accessible through the custom domain over HTTPS.
+
+![Code-server login page running](docs/screenshots/live-application-1.png)
+
+![Code-server running at the live HTTPS domain](docs/screenshots/live-application-2.png)
