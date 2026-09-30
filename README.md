@@ -47,8 +47,6 @@ There is no private subnet and no NAT Gateway anywhere in this design. The ECS t
 
 ### CI/CD flow
 
-![CI/CD architecture](docs/cicd-architecture.svg)
-
 The delivery process is split across two GitHub Actions workflows, with image creation and deployment deliberately separated by a manual promotion gate:
 
 - **`build-push.yaml`** — triggers automatically when a push to `main` changes files under `app/**`. It builds both images, tags them with the short git commit SHA, and pushes them to their respective ECR repositories. The workflow assumes a narrow IAM role (`github-actions-ecr-push`) that can only push to the two specific ECR repositories used in this project.
@@ -99,7 +97,6 @@ Both workflows authenticate to AWS through GitHub OIDC, using short lived creden
 │   └── deploy.yaml
 └── docs/
     ├── architecture.svg
-    ├── cicd-architecture.svg
     └── screenshots/
 ```
 
