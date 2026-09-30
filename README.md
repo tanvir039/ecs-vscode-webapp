@@ -129,7 +129,7 @@ Both workflows authenticate to AWS through GitHub OIDC, using short lived creden
 
 ## Reproducing this deployment
 
-> **Note:** this repository is not currently parameterised for a fresh AWS account or a different GitHub repository. The AWS account ID and the GitHub `owner/repo` are hardcoded in a few places — `bootstrap/oidc.tf`'s OIDC trust policy condition, and the `role-to-assume` ARNs in both `.github/workflows/*.yaml` files. Reproducing this in your own account/repo means updating those values first, or the OIDC authentication step will fail.
+> **Note:** This repository is not currently parameterised for a fresh AWS account or a different GitHub repository. The AWS account ID and the GitHub `owner/repo` are hardcoded in a few places — `bootstrap/oidc.tf`'s OIDC trust policy condition, and the `role-to-assume` ARNs in both `.github/workflows/*.yaml` files. Reproducing this in your own account/repo means updating those values first, or the OIDC authentication step will fail.
 
 ### Prerequisites
 
